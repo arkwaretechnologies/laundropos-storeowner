@@ -98,7 +98,7 @@ function DashboardContent() {
         return
       }
 
-      // Check if user is store owner or has store assignments
+      // Check user role - only store_owner can access this portal
       const { data: userData, error } = await supabase
         .from('users')
         .select('role')
@@ -110,15 +110,9 @@ function DashboardContent() {
         return
       }
 
-      const { data: assignments } = await supabase
-        .from('user_store_assignments')
-        .select('store_id')
-        .eq('user_id', user.id)
-
-      const isStoreOwner = userData.role === 'store_owner'
-      const hasStoreAssignments = assignments && assignments.length > 0
-
-      if (!isStoreOwner && !hasStoreAssignments) {
+      // Only store_owner role can access the store owner portal
+      // Cashiers and other roles should not be able to access here
+      if (userData.role !== 'store_owner') {
         router.push('/login')
         return
       }

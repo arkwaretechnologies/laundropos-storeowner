@@ -43,11 +43,39 @@ const StoreAssignment: React.FC<StoreAssignmentProps> = ({
   }, [accessibleStores, isSuperAdmin])
 
   useEffect(() => {
-    // Update assigned stores when selectedStoreIds prop changes
-    const assigned = availableStores.filter(store => 
-      selectedStoreIds.includes(store.id)
-    )
-    setAssignedStores(assigned)
+    // Update assigned stores when selectedStoreIds prop changes or availableStores loads
+    // This ensures stores are properly moved to assigned when availableStores loads
+    console.log('StoreAssignment: Updating assigned stores', {
+      selectedStoreIds,
+      availableStoresCount: availableStores.length,
+      availableStoreIds: availableStores.map(s => s.id)
+    })
+    
+    if (availableStores.length > 0 && selectedStoreIds.length > 0) {
+      // Find stores that are in selectedStoreIds
+      const assigned = availableStores.filter(store => 
+        selectedStoreIds.includes(store.id)
+      )
+      console.log('StoreAssignment: Found assigned stores', {
+        assignedCount: assigned.length,
+        assignedIds: assigned.map(s => s.id)
+      })
+      setAssignedStores(assigned)
+      
+      // If we have selectedStoreIds but stores aren't in availableStores yet,
+      // we might need to wait for availableStores to load
+      if (assigned.length === 0 && selectedStoreIds.length > 0) {
+        console.warn('StoreAssignment: selectedStoreIds has stores but they are not in availableStores', {
+          selectedStoreIds,
+          availableStoreIds: availableStores.map(s => s.id)
+        })
+      }
+    } else if (selectedStoreIds.length === 0) {
+      // If no stores selected, clear assigned stores
+      setAssignedStores([])
+    }
+    // If availableStores is empty but selectedStoreIds has items, keep assignedStores as is
+    // (they will be populated when availableStores loads)
   }, [selectedStoreIds, availableStores])
 
   const checkUserRole = async () => {
@@ -115,10 +143,12 @@ const StoreAssignment: React.FC<StoreAssignmentProps> = ({
     }
   }
 
-  const filteredAvailableStores = availableStores.filter(store =>
-    !selectedStoreIds.includes(store.id) &&
-    store.name.toLowerCase().includes(availableFilter.toLowerCase())
-  )
+  const filteredAvailableStores = availableStores.filter(store => {
+    // Exclude stores that are already in selectedStoreIds (they should be in assigned)
+    const isSelected = selectedStoreIds.includes(store.id)
+    const matchesFilter = store.name.toLowerCase().includes(availableFilter.toLowerCase())
+    return !isSelected && matchesFilter
+  })
 
   const filteredAssignedStores = assignedStores.filter(store =>
     store.name.toLowerCase().includes(assignedFilter.toLowerCase())
@@ -305,6 +335,11 @@ const StoreAssignment: React.FC<StoreAssignmentProps> = ({
       {selectedStoreIds.length > 0 && (
         <div className="mt-3 text-sm text-gray-600">
           {selectedStoreIds.length} store{selectedStoreIds.length !== 1 ? 's' : ''} selected
+          {assignedStores.length < selectedStoreIds.length && availableStores.length > 0 && (
+            <span className="text-orange-600 ml-2 text-xs">
+              (Note: {selectedStoreIds.length - assignedStores.length} store(s) may not be visible yet)
+            </span>
+          )}
         </div>
       )}
     </div>

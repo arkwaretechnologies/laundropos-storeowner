@@ -33,7 +33,7 @@ const LoginPage = () => {
       }
 
       if (data.user) {
-        // Check if user is store owner or has store assignments
+        // Check user role - only store_owner can access this portal
         const { data: userData, error: userError } = await supabase
           .from('users')
           .select('role')
@@ -45,17 +45,10 @@ const LoginPage = () => {
           return
         }
 
-        // Check if user is store owner or has store assignments
-        const { data: assignments } = await supabase
-          .from('user_store_assignments')
-          .select('store_id')
-          .eq('user_id', data.user.id)
-
-        const isStoreOwner = userData.role === 'store_owner'
-        const hasStoreAssignments = assignments && assignments.length > 0
-
-        if (!isStoreOwner && !hasStoreAssignments) {
-          setError('Access denied. Store owner privileges required.')
+        // Only store_owner role can access the store owner portal
+        // Cashiers and other roles should not be able to login here
+        if (userData.role !== 'store_owner') {
+          setError('Access denied. This portal is only for store owners.')
           return
         }
 

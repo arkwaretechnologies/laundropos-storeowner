@@ -37,6 +37,13 @@ const UserManagement = () => {
   useEffect(() => {
     if (selectedStore) {
       fetchUsers()
+      // Only update selectedStoreIds if dialog is not open (to avoid conflicts)
+      // When dialog is open, let the form manage selectedStoreIds
+      if (!dialogVisible) {
+        if (selectedStoreIds.length === 0 || !selectedStoreIds.includes(selectedStore.id)) {
+          setSelectedStoreIds([selectedStore.id])
+        }
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStore])
@@ -46,38 +53,126 @@ const UserManagement = () => {
     
     try {
       setLoading(true)
-      // Get users assigned to the selected store
-      const { data: assignments, error: assignmentError } = await supabase
+      console.log('Fetching users for store:', selectedStore.id, selectedStore.name)
+
+      // Use admin client for better access (bypasses RLS)
+      const clientToUse = supabaseAdmin || supabase
+      const allUserIds = new Set<string>()
+
+      // Step 1: Get all user IDs from user_store_assignments
+      const { data: assignments, error: assignmentError } = await clientToUse
         .from('user_store_assignments')
         .select('user_id')
         .eq('store_id', selectedStore.id)
 
       if (assignmentError) {
-        console.error('Error fetching assignments:', assignmentError)
-        return
+        console.error('Error fetching assignment IDs:', assignmentError)
+      } else {
+        assignments?.forEach((a: { user_id: string }) => {
+          if (a.user_id) {
+            allUserIds.add(a.user_id)
+          }
+        })
+        console.log('Found user IDs from assignments:', Array.from(allUserIds))
       }
 
-      const userIds = assignments?.map(a => a.user_id) || []
+      // Step 2: Get store owner and manager if they exist
+      // Try to get owner_id and manager_id, but don't fail if columns don't exist
+      try {
+        const { data: storeData, error: storeError } = await clientToUse
+          .from('stores')
+          .select('owner_id, manager_id')
+          .eq('id', selectedStore.id)
+          .single()
 
-      if (userIds.length === 0) {
+        if (storeError) {
+          // If error is about missing columns, that's okay - just log and continue
+          if (storeError.code === 'PGRST116' || storeError.message?.includes('column')) {
+            console.log('Store table does not have owner_id/manager_id columns, skipping')
+          } else {
+            console.error('Error fetching store data:', storeError)
+          }
+        } else if (storeData) {
+          if (storeData.owner_id) {
+            allUserIds.add(storeData.owner_id)
+            console.log('Added owner_id:', storeData.owner_id)
+          }
+          if (storeData.manager_id) {
+            allUserIds.add(storeData.manager_id)
+            console.log('Added manager_id:', storeData.manager_id)
+          }
+        }
+      } catch {
+        // Silently continue if store query fails - we can still get users from assignments
+        console.log('Could not fetch store owner/manager data, continuing with assignments only')
+      }
+
+      // Also check if selectedStore already has manager_id (from context)
+      if (selectedStore.manager_id) {
+        allUserIds.add(selectedStore.manager_id)
+        console.log('Added manager_id from selectedStore:', selectedStore.manager_id)
+      }
+
+      const userIdsArray = Array.from(allUserIds)
+      console.log('All user IDs to fetch:', userIdsArray.length, userIdsArray)
+
+      if (userIdsArray.length === 0) {
+        console.log('No users found for this store')
         setUsers([])
+        setLoading(false)
         return
       }
 
-      const { data, error } = await supabase
+      // Step 3: Fetch all users, excluding super_admin
+      const { data: usersData, error: usersError } = await clientToUse
         .from('users')
         .select('*')
-        .in('id', userIds)
+        .in('id', userIdsArray)
+        .neq('role', 'super_admin') // Exclude super_admin
         .order('created_at', { ascending: false })
 
-      if (error) {
-        console.error('Error fetching users:', error)
+      if (usersError) {
+        console.error('Error fetching users:', usersError)
+        setUsers([])
+        setLoading(false)
         return
       }
 
-      setUsers(data || [])
+      // Map to User interface
+      interface UserData {
+        id: string
+        email: string
+        first_name?: string | null
+        last_name?: string | null
+        phone?: string | null
+        role: string
+        is_active?: boolean | null
+        created_at: string
+      }
+      const allUsers: User[] = (usersData || []).map((user: UserData) => ({
+        id: user.id,
+        email: user.email,
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
+        phone: user.phone || '',
+        role: user.role,
+        is_active: user.is_active !== false,
+        created_at: user.created_at
+      }))
+
+      console.log('Total users found for store:', selectedStore.id, 'Count:', allUsers.length)
+      console.log('User details:', allUsers.map(u => ({ 
+        id: u.id, 
+        email: u.email, 
+        role: u.role, 
+        name: `${u.first_name} ${u.last_name}`,
+        is_active: u.is_active
+      })))
+      
+      setUsers(allUsers)
     } catch (error) {
-      console.error('Error:', error)
+      console.error('Error in fetchUsers:', error)
+      setUsers([])
     } finally {
       setLoading(false)
     }
@@ -105,13 +200,22 @@ const UserManagement = () => {
     setPhone('')
     setRole('cashier')
     setIsActive(true)
-    setSelectedStoreIds(selectedStore ? [selectedStore.id] : [])
+    // Always default to the currently selected store (only once)
+    if (selectedStore) {
+      setSelectedStoreIds([selectedStore.id])
+    } else {
+      setSelectedStoreIds([])
+    }
     setEditingUser(null)
   }
 
   const openAddDialog = () => {
     resetForm()
-    setDialogVisible(true)
+    // resetForm already sets the store to [selectedStore.id]
+    // Give a small delay to ensure StoreAssignment component is ready
+    setTimeout(() => {
+      setDialogVisible(true)
+    }, 0)
   }
 
   const openEditDialog = async (user: User) => {
@@ -154,10 +258,26 @@ const UserManagement = () => {
       return
     }
 
-    if (selectedStoreIds.length === 0) {
+    // Ensure at least the current store is selected, but avoid duplicates
+    let finalStoreIds = [...selectedStoreIds] // Create a copy to avoid mutations
+    if (finalStoreIds.length === 0 || !finalStoreIds.includes(selectedStore.id)) {
+      // If no stores selected or current store not in selection, use current store
+      finalStoreIds = [selectedStore.id]
+    } else {
+      // Remove duplicates just in case
+      finalStoreIds = Array.from(new Set(finalStoreIds))
+    }
+
+    if (finalStoreIds.length === 0) {
       alert('Please assign at least one store to the user')
       return
     }
+
+    console.log('Creating user with store assignments:', {
+      selectedStoreIds: selectedStoreIds,
+      finalStoreIds: finalStoreIds,
+      currentStore: selectedStore.id
+    })
 
     setSaving(true)
     try {
@@ -214,25 +334,38 @@ const UserManagement = () => {
       }
 
       // Step 4: Create store assignments
-      const assignments = selectedStoreIds.map((storeId, index) => ({
+      // Use finalStoreIds to ensure we're assigning the correct stores
+      const assignments = finalStoreIds.map((storeId, index) => ({
         user_id: authData.user!.id,
         store_id: storeId,
         role: 'employee',
         is_primary: index === 0,
         assigned_by: actingUserId || authData.user!.id
       }))
+      
+      console.log('Creating user with store assignments:', {
+        userId: authData.user!.id,
+        storeIds: finalStoreIds,
+        currentStore: selectedStore.id
+      })
 
       const { error: assignmentError } = await supabaseAdmin
         .from('user_store_assignments')
         .insert(assignments)
 
       if (assignmentError) {
+        console.error('Assignment error:', assignmentError)
         alert(`User created but failed to assign stores: ${assignmentError.message}`)
+        // Still refresh to show the user if they were created
+        await fetchUsers()
       } else {
         alert('User created successfully!')
         setDialogVisible(false)
         resetForm()
-        fetchUsers()
+        // Add a small delay to ensure database consistency
+        setTimeout(() => {
+          fetchUsers()
+        }, 500)
       }
     } catch (error) {
       console.error('Error:', error)
@@ -385,12 +518,22 @@ const UserManagement = () => {
           <h2 className="text-2xl font-bold text-gray-900">User Management</h2>
           <p className="text-gray-600 mt-1">Manage users for {selectedStore.name}</p>
         </div>
-        <button
-          onClick={openAddDialog}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors w-full sm:w-auto"
-        >
-          Create New User
-        </button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <button
+            onClick={fetchUsers}
+            disabled={loading}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 flex-1 sm:flex-none"
+            title="Refresh user list"
+          >
+            {loading ? 'Loading...' : '🔄 Refresh'}
+          </button>
+          <button
+            onClick={openAddDialog}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex-1 sm:flex-none"
+          >
+            Create New User
+          </button>
+        </div>
       </div>
 
       {/* Users Table */}
@@ -583,6 +726,13 @@ const UserManagement = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Store/Tenant *
               </label>
+              {selectedStore && (
+                <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                  <span className="text-sm text-blue-800">
+                    💡 Current store: <strong>{selectedStore.name}</strong> {selectedStoreIds.includes(selectedStore.id) ? '(Selected)' : '(Not selected - will be auto-assigned)'}
+                  </span>
+                </div>
+              )}
               <StoreAssignment
                 selectedStoreIds={selectedStoreIds}
                 onStoreSelectionChange={setSelectedStoreIds}
