@@ -10,43 +10,82 @@ import {
   FileTextIcon,
   ExitIcon,
   BoxIcon,
-  BarChartIcon
+  BarChartIcon,
+  GearIcon,
+  Cross2Icon
 } from '@radix-ui/react-icons'
 import { Select, Text } from '@radix-ui/themes'
+import PWAInstallButton from './PWAInstallButton'
 
 interface SidebarProps {
   activeTab: string
   onTabChange: (tab: string) => void
+  isOpen: boolean
+  onClose: () => void
 }
 
 const baseMenuItems = [
+  { id: 'dashboard', label: 'Dashboard', icon: BarChartIcon },
+  { id: 'store-profile', label: 'Store Profile', icon: GearIcon },
   { id: 'users', label: 'Users', icon: PersonIcon },
   { id: 'services', label: 'Services & Pricing', icon: CubeIcon },
+  { id: 'inventory', label: 'Inventory', icon: BoxIcon },
   { id: 'orders', label: 'Orders & QR Codes', icon: FileTextIcon },
   { id: 'reports', label: 'Reports', icon: BarChartIcon },
 ]
 
-const inventoryMenuItem = { id: 'inventory', label: 'Inventory', icon: BoxIcon }
-
-export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
+export default function Sidebar({ activeTab, onTabChange, isOpen, onClose }: SidebarProps) {
   const { stores, selectedStore, setSelectedStore, loading: storesLoading } = useStore()
   const router = useRouter()
 
   // Check if inventory tracking is enabled for the selected store
   const hasInventoryTracking = selectedStore?.features?.inventory_tracking === true
 
-  // Build menu items based on features
+  // Build menu items - inventory is now in baseMenuItems, but we filter it if feature is disabled
   const menuItems = hasInventoryTracking 
-    ? [...baseMenuItems, inventoryMenuItem]
-    : baseMenuItems
+    ? baseMenuItems
+    : baseMenuItems.filter(item => item.id !== 'inventory')
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/login')
   }
 
+  const handleMenuItemClick = (tab: string) => {
+    onTabChange(tab)
+    // Close sidebar on mobile after selecting a menu item
+    if (window.innerWidth < 1024) {
+      onClose()
+    }
+  }
+
   return (
-    <div className="w-64 bg-slate-800 text-white flex flex-col h-screen fixed left-0 top-0">
+    <>
+      {/* Overlay for mobile */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={onClose}
+        />
+      )}
+      
+      {/* Sidebar */}
+      <div className={`
+        w-64 bg-slate-800 text-white flex flex-col h-screen fixed left-0 top-0 z-50
+        transform transition-transform duration-300 ease-in-out
+        lg:translate-x-0
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        {/* Close button for mobile */}
+        <div className="lg:hidden flex justify-end p-4 border-b border-slate-700">
+          <button
+            onClick={onClose}
+            className="text-slate-300 hover:text-white transition-colors"
+            aria-label="Close sidebar"
+          >
+            <Cross2Icon className="w-6 h-6" />
+          </button>
+        </div>
       {/* Logo and Header */}
       <div className="p-6 border-b border-slate-700">
         <h1 className="text-xl font-bold mb-1">LaundroPOS</h1>
@@ -96,7 +135,7 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
           return (
             <button
               key={item.id}
-              onClick={() => onTabChange(item.id)}
+              onClick={() => handleMenuItemClick(item.id)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                 isActive
                   ? 'bg-blue-600 text-white'
@@ -111,7 +150,8 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-slate-700">
+      <div className="p-4 border-t border-slate-700 space-y-2">
+        <PWAInstallButton />
         <button
           onClick={handleLogout}
           className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
@@ -121,6 +161,7 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
         </button>
       </div>
     </div>
+    </>
   )
 }
 

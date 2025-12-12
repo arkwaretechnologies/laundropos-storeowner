@@ -70,6 +70,29 @@ laundropos-store-owner/
   - View orders for their stores
 - **Store switching**: Sidebar allows switching between multiple stores if owner has multiple assignments
 
+## PWA (Progressive Web App) Setup
+
+This app is configured as a Progressive Web App (PWA) and can be installed on mobile devices and desktops.
+
+### Adding PWA Icons
+
+To complete the PWA setup, you need to add icon files to the `public/` directory:
+
+1. **icon-192.png** - 192x192 pixels (required)
+2. **icon-512.png** - 512x512 pixels (required)
+
+You can use your app logo or create icons using tools like:
+- [PWA Asset Generator](https://github.com/onderceylan/pwa-asset-generator)
+- [RealFaviconGenerator](https://realfavicongenerator.net/)
+
+Place these files in the `public/` directory and the PWA will be fully functional.
+
+### Installing the App
+
+- **Android/Chrome**: Click the "Install App" button in the sidebar, or use the browser's install prompt
+- **iOS/Safari**: Tap the Share button and select "Add to Home Screen"
+- **Desktop**: Use the browser's install prompt or the "Install App" button
+
 ## Build for Production
 
 ```bash

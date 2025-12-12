@@ -344,12 +344,14 @@ export default function ServicesManagement() {
     <Box>
       <Flex direction="column" gap="4">
         {/* Header */}
-        <Flex justify="between" align="center">
-          <Box>
-            <Text size="6" weight="bold">Services & Pricing</Text>
-            <Text size="2" color="gray" mt="1">Manage services for {selectedStore.name}</Text>
+        <Flex justify="between" align="start" className="flex-col sm:flex-row" gap="4">
+          <Box className="flex-1 min-w-0">
+            <Text size="6" weight="bold" className="block">Services & Pricing</Text>
+            <Text size="2" color="gray" mt="1" className="block whitespace-normal break-words">
+              Manage services for {selectedStore.name}
+            </Text>
           </Box>
-          <Button onClick={() => openDialog()}>
+          <Button onClick={() => openDialog()} className="w-full sm:w-auto flex-shrink-0">
             <PlusIcon /> Add Custom Service
           </Button>
         </Flex>

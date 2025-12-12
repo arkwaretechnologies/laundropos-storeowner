@@ -221,10 +221,12 @@ export default function OrderManagement() {
 
   return (
     <div className="p-6 space-y-6">
-      <Heading size="6" className="mb-2">Orders & QR Codes</Heading>
-      <Text color="gray" size="2">
-        View transactions for {selectedStore.name}, inspect line items, and print claim stubs with QR codes.
-      </Text>
+      <div className="mb-4">
+        <Heading size="6" className="mb-2">Orders & QR Codes</Heading>
+        <Text color="gray" size="2">
+          View transactions for {selectedStore.name}, inspect line items, and print claim stubs with QR codes.
+        </Text>
+      </div>
 
       <Card className="p-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center">

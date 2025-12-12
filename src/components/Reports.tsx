@@ -31,14 +31,6 @@ interface Order {
   customer_id?: string
 }
 
-interface Customer {
-  id?: string
-  name?: string
-  first_name?: string
-  last_name?: string
-}
-
-
 interface InventoryItem {
   id: string
   name: string
@@ -674,13 +666,15 @@ export default function Reports() {
     <Box>
       <Flex direction="column" gap="4">
         {/* Header */}
-        <Flex justify="between" align="center">
-          <Box>
-            <Text size="6" weight="bold">Reports</Text>
-            <Text size="2" color="gray">Analytics and insights for {selectedStore.name}</Text>
+        <Flex justify="between" align="start" className="flex-col sm:flex-row" gap="4">
+          <Box className="flex-1 min-w-0">
+            <Text size="6" weight="bold" className="block">Reports</Text>
+            <Text size="2" color="gray" mt="1" className="block whitespace-normal break-words">
+              Analytics and insights for {selectedStore.name}
+            </Text>
           </Box>
           <Select.Root value={dateRange} onValueChange={setDateRange}>
-            <Select.Trigger style={{ minWidth: 150 }} />
+            <Select.Trigger style={{ minWidth: 150 }} className="w-full sm:w-auto flex-shrink-0" />
             <Select.Content>
               <Select.Item value="7d">Last 7 Days</Select.Item>
               <Select.Item value="30d">Last 30 Days</Select.Item>

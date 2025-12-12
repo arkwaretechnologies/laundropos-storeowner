@@ -6,8 +6,30 @@ import { supabase } from '@/lib/supabase'
 interface Store {
   id: string
   name: string
+  address?: string | null
+  phone?: string | null
+  email?: string | null
+  website?: string | null
+  manager_id?: string | null
+  status?: string | null
+  created_at?: string | null
+  updated_at?: string | null
   features?: {
+    email_receipts?: boolean
+    loyalty_points?: boolean
+    tax_calculation?: boolean
+    delivery_tracking?: boolean
+    sms_notifications?: boolean
+    advanced_reporting?: boolean
     inventory_tracking?: boolean
+    multiple_currencies?: boolean
+  }
+  settings?: {
+    currency?: string
+    tax_rate?: number
+    currency_symbol?: string
+    low_stock_threshold?: number
+    loyalty_points_rate?: number
   }
 }
 
@@ -29,7 +51,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const loadStores = async () => {
     try {
       setLoading(true)
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      
+      // Handle refresh token errors
+      if (authError) {
+        if (authError.message?.includes('Refresh Token') || 
+            authError.message?.includes('refresh_token_not_found')) {
+          console.warn('Refresh token invalid in StoreContext, clearing stores...')
+          setStores([])
+          setSelectedStore(null)
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('selectedStoreId')
+          }
+          return
+        }
+      }
       
       if (!user) {
         setStores([])
@@ -40,7 +76,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // Get stores assigned to the user
       const { data: assignments, error: assignmentError } = await supabase
         .from('user_store_assignments')
-        .select('store_id, stores(id, name)')
+        .select('store_id, stores(id, name, address, phone, email, website, manager_id, status, created_at, updated_at, features, settings)')
         .eq('user_id', user.id)
 
       if (assignmentError) {
@@ -60,7 +96,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (userData?.role === 'super_admin') {
         const { data: storesData, error: storesError } = await supabase
           .from('stores')
-          .select('id, name, features')
+          .select('id, name, address, phone, email, website, manager_id, status, created_at, updated_at, features, settings')
           .eq('status', 'active')
           .order('name')
 
@@ -71,13 +107,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const loadedStores = storesData || []
           setStores(loadedStores)
           
-          // Set first store as selected if none selected
-          if (!selectedStore && loadedStores.length > 0) {
+          // Update selected store with fresh data if it exists
+          if (selectedStore) {
+            const updatedStore = loadedStores.find(s => s.id === selectedStore.id)
+            if (updatedStore) {
+              // Update selected store with fresh data
+              setSelectedStore(updatedStore)
+            } else if (loadedStores.length > 0) {
+              // If selected store is no longer available, select first one
+              setSelectedStore(loadedStores[0])
+            } else {
+              setSelectedStore(null)
+            }
+          } else if (loadedStores.length > 0) {
+            // Set first store as selected if none selected
             const savedStoreId = localStorage.getItem('selectedStoreId')
             const savedStore = loadedStores.find(s => s.id === savedStoreId)
             setSelectedStore(savedStore || loadedStores[0])
-          } else if (selectedStore && !loadedStores.find(s => s.id === selectedStore.id)) {
-            setSelectedStore(loadedStores.length > 0 ? loadedStores[0] : null)
           }
         }
         setLoading(false)
@@ -107,7 +153,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (userData?.role === 'store_owner') {
         const { data: ownerStores } = await supabase
           .from('stores')
-          .select('id, name')
+          .select('id, name, address, phone, email, website, manager_id, status, created_at, updated_at, features, settings')
           .eq('owner_id', user.id)
 
         if (ownerStores) {
@@ -119,7 +165,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (allStoreIds.size > 0) {
           const { data: storesData, error: storesError } = await supabase
             .from('stores')
-            .select('id, name, features')
+            .select('id, name, address, phone, email, website, manager_id, status, created_at, updated_at, features, settings')
             .in('id', Array.from(allStoreIds))
             .eq('status', 'active')
             .order('name')
@@ -131,15 +177,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const loadedStores = storesData || []
           setStores(loadedStores)
           
-          // Set first store as selected if none selected
-          if (!selectedStore && loadedStores.length > 0) {
-            // Try to get from localStorage first
+          // Update selected store with fresh data if it exists
+          if (selectedStore) {
+            const updatedStore = loadedStores.find(s => s.id === selectedStore.id)
+            if (updatedStore) {
+              // Update selected store with fresh data
+              setSelectedStore(updatedStore)
+            } else if (loadedStores.length > 0) {
+              // If selected store is no longer available, select first one
+              setSelectedStore(loadedStores[0])
+            } else {
+              setSelectedStore(null)
+            }
+          } else if (loadedStores.length > 0) {
+            // Set first store as selected if none selected
             const savedStoreId = localStorage.getItem('selectedStoreId')
             const savedStore = loadedStores.find(s => s.id === savedStoreId)
             setSelectedStore(savedStore || loadedStores[0])
-          } else if (selectedStore && !loadedStores.find(s => s.id === selectedStore.id)) {
-            // If selected store is no longer available, select first one
-            setSelectedStore(loadedStores.length > 0 ? loadedStores[0] : null)
           }
         }
       } else {

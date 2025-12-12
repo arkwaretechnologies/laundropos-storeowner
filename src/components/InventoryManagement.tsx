@@ -302,12 +302,14 @@ export default function InventoryManagement() {
     <Box>
       <Flex direction="column" gap="4">
         {/* Header */}
-        <Flex justify="between" align="center">
-          <Box>
-            <Text size="6" weight="bold">Inventory Management</Text>
-            <Text size="2" color="gray">Manage products and supplies for {selectedStore.name}</Text>
+        <Flex justify="between" align="start" className="flex-col sm:flex-row" gap="4">
+          <Box className="flex-1 min-w-0">
+            <Text size="6" weight="bold" className="block">Inventory Management</Text>
+            <Text size="2" color="gray" mt="1" className="block whitespace-normal break-words">
+              Manage products and supplies for {selectedStore.name}
+            </Text>
           </Box>
-          <Button onClick={() => openDialog()}>
+          <Button onClick={() => openDialog()} className="w-full sm:w-auto flex-shrink-0">
             <PlusIcon /> Add Product
           </Button>
         </Flex>

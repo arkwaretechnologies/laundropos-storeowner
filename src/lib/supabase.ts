@@ -18,6 +18,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 })
 
+// Note: Refresh token errors are handled in components via auth state listeners
+// and error handling in auth checks. When a refresh token is invalid,
+// the app will automatically sign out and redirect to login.
+
 // Admin client for password updates (requires service role key)
 // Note: You need to add your service role key to .env.local
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 
