@@ -46,7 +46,7 @@ const UserManagement = () => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStore])
+  }, [selectedStore, dialogVisible])
 
   const fetchUsers = async () => {
     if (!selectedStore) return
@@ -259,14 +259,19 @@ const UserManagement = () => {
     }
 
     // Ensure at least the current store is selected, but avoid duplicates
+    // If user has selected stores, preserve their selection and add current store if missing
     let finalStoreIds = [...selectedStoreIds] // Create a copy to avoid mutations
-    if (finalStoreIds.length === 0 || !finalStoreIds.includes(selectedStore.id)) {
-      // If no stores selected or current store not in selection, use current store
+    
+    if (finalStoreIds.length === 0) {
+      // If no stores selected, default to current store
       finalStoreIds = [selectedStore.id]
-    } else {
-      // Remove duplicates just in case
-      finalStoreIds = Array.from(new Set(finalStoreIds))
+    } else if (!finalStoreIds.includes(selectedStore.id)) {
+      // If current store is not in selection, add it (don't replace the user's selection)
+      finalStoreIds.push(selectedStore.id)
     }
+    
+    // Remove duplicates just in case
+    finalStoreIds = Array.from(new Set(finalStoreIds))
 
     if (finalStoreIds.length === 0) {
       alert('Please assign at least one store to the user')
