@@ -50,15 +50,82 @@ export default function ServicesManagement() {
   const [serviceCategory, setServiceCategory] = useState('wash')
   const [isActive, setIsActive] = useState(true)
 
+  // Comprehensive list of Ionicons matching mobile app (LaundroPOS Mobile)
+  // These icons sync with the mobile app - any icon selected here will appear in the app
   const availableIcons = [
+    // Clothing & Items
     { value: 'shirt-outline', label: '👕 Shirt' },
-    { value: 'sparkles-outline', label: '✨ Sparkles' },
-    { value: 'flame-outline', label: '🔥 Flame' },
-    { value: 'cut-outline', label: '✂️ Cut' },
+    { value: 'shirt', label: '👕 Shirt (Filled)' },
+    { value: 'bag-outline', label: '👜 Bag' },
+    { value: 'bag', label: '👜 Bag (Filled)' },
     { value: 'cube-outline', label: '📦 Cube' },
-    { value: 'flash-outline', label: '⚡ Flash' },
+    { value: 'cube', label: '📦 Cube (Filled)' },
+    { value: 'bed-outline', label: '🛏️ Bedding' },
+    { value: 'bed', label: '🛏️ Bedding (Filled)' },
+    
+    // Washing & Cleaning
     { value: 'water-outline', label: '💧 Water' },
+    { value: 'water', label: '💧 Water (Filled)' },
+    { value: 'sparkles-outline', label: '✨ Sparkles' },
+    { value: 'sparkles', label: '✨ Sparkles (Filled)' },
+    { value: 'bubbles-outline', label: '🫧 Bubbles' },
+    { value: 'bubbles', label: '🫧 Bubbles (Filled)' },
+    { value: 'brush-outline', label: '🖌️ Brush' },
+    { value: 'brush', label: '🖌️ Brush (Filled)' },
+    
+    // Temperature & Heat
+    { value: 'flame-outline', label: '🔥 Flame' },
+    { value: 'flame', label: '🔥 Flame (Filled)' },
     { value: 'snow-outline', label: '❄️ Snow' },
+    { value: 'snow', label: '❄️ Snow (Filled)' },
+    { value: 'thermometer-outline', label: '🌡️ Thermometer' },
+    { value: 'thermometer', label: '🌡️ Thermometer (Filled)' },
+    
+    // Services & Actions
+    { value: 'cut-outline', label: '✂️ Cut' },
+    { value: 'cut', label: '✂️ Cut (Filled)' },
+    { value: 'hammer-outline', label: '🔨 Hammer' },
+    { value: 'hammer', label: '🔨 Hammer (Filled)' },
+    { value: 'construct-outline', label: '🔧 Construct' },
+    { value: 'construct', label: '🔧 Construct (Filled)' },
+    
+    // Speed & Express
+    { value: 'flash-outline', label: '⚡ Flash' },
+    { value: 'flash', label: '⚡ Flash (Filled)' },
+    { value: 'rocket-outline', label: '🚀 Rocket' },
+    { value: 'rocket', label: '🚀 Rocket (Filled)' },
+    { value: 'time-outline', label: '⏰ Time' },
+    { value: 'time', label: '⏰ Time (Filled)' },
+    { value: 'hourglass-outline', label: '⏳ Hourglass' },
+    { value: 'hourglass', label: '⏳ Hourglass (Filled)' },
+    
+    // Quality & Premium
+    { value: 'star-outline', label: '⭐ Star' },
+    { value: 'star', label: '⭐ Star (Filled)' },
+    { value: 'diamond-outline', label: '💎 Diamond' },
+    { value: 'diamond', label: '💎 Diamond (Filled)' },
+    { value: 'trophy-outline', label: '🏆 Trophy' },
+    { value: 'trophy', label: '🏆 Trophy (Filled)' },
+    
+    // Other Services
+    { value: 'car-outline', label: '🚗 Car' },
+    { value: 'car', label: '🚗 Car (Filled)' },
+    { value: 'home-outline', label: '🏠 Home' },
+    { value: 'home', label: '🏠 Home (Filled)' },
+    { value: 'business-outline', label: '🏢 Business' },
+    { value: 'business', label: '🏢 Business (Filled)' },
+    
+    // General Icons
+    { value: 'checkmark-circle-outline', label: '✅ Checkmark' },
+    { value: 'checkmark-circle', label: '✅ Checkmark (Filled)' },
+    { value: 'heart-outline', label: '❤️ Heart' },
+    { value: 'heart', label: '❤️ Heart (Filled)' },
+    { value: 'shield-outline', label: '🛡️ Shield' },
+    { value: 'shield', label: '🛡️ Shield (Filled)' },
+    { value: 'leaf-outline', label: '🍃 Leaf' },
+    { value: 'leaf', label: '🍃 Leaf (Filled)' },
+    { value: 'ribbon-outline', label: '🎀 Ribbon' },
+    { value: 'ribbon', label: '🎀 Ribbon (Filled)' },
   ]
 
   const categories = [
@@ -441,10 +508,19 @@ export default function ServicesManagement() {
 
             {/* Icon */}
             <Flex direction="column" gap="2">
-              <Text size="2" weight="bold">Icon</Text>
+              <Flex direction="column" gap="1">
+                <Text size="2" weight="bold">Icon</Text>
+                <Text size="1" color="gray">
+                  Selected icon will sync with LaundroPOS Mobile app
+                </Text>
+              </Flex>
               <Select.Root value={serviceIcon} onValueChange={setServiceIcon}>
-                <Select.Trigger />
-                <Select.Content>
+                <Select.Trigger>
+                  <Flex align="center" gap="2">
+                    <Text>{availableIcons.find(i => i.value === serviceIcon)?.label || 'Select icon'}</Text>
+                  </Flex>
+                </Select.Trigger>
+                <Select.Content style={{ maxHeight: '300px' }}>
                   {availableIcons.map(icon => (
                     <Select.Item key={icon.value} value={icon.value}>
                       {icon.label}
@@ -452,6 +528,11 @@ export default function ServicesManagement() {
                   ))}
                 </Select.Content>
               </Select.Root>
+              {serviceIcon && (
+                <Text size="1" color="gray" mt="1">
+                  Icon name: <Text weight="bold">{serviceIcon}</Text> (will be used in mobile app)
+                </Text>
+              )}
             </Flex>
 
             {/* Category */}
