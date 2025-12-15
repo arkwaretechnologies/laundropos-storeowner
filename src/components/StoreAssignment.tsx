@@ -42,6 +42,61 @@ const StoreAssignment: React.FC<StoreAssignmentProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessibleStores, isSuperAdmin])
 
+  // Fetch stores that are in selectedStoreIds but not yet in availableStores
+  // This is needed when editing other users who have stores assigned that the current user doesn't have access to
+  useEffect(() => {
+    const fetchMissingStores = async () => {
+      if (selectedStoreIds.length === 0) return
+      
+      // For super admin, all stores should already be loaded, so skip
+      if (isSuperAdmin) return
+      
+      // Find store IDs that are in selectedStoreIds but not in availableStores
+      const availableStoreIds = availableStores.map(s => s.id)
+      const missingStoreIds = selectedStoreIds.filter(id => !availableStoreIds.includes(id))
+      
+      console.log('StoreAssignment: Checking for missing stores', {
+        selectedStoreIds,
+        availableStoreIds,
+        missingStoreIds
+      })
+      
+      if (missingStoreIds.length > 0) {
+        try {
+          const { data: missingStores, error } = await supabase
+            .from('stores')
+            .select('id, name, address')
+            .in('id', missingStoreIds)
+            .eq('status', 'active')
+
+          if (error) {
+            console.error('Error loading missing stores:', error)
+            return
+          }
+
+          if (missingStores && missingStores.length > 0) {
+            console.log('StoreAssignment: Fetched missing stores:', missingStores.map(s => s.id))
+            // Add missing stores to availableStores so they can be shown in assigned
+            setAvailableStores(prev => {
+              const existingIds = prev.map(s => s.id)
+              const newStores = missingStores.filter(s => !existingIds.includes(s.id))
+              const updated = [...prev, ...newStores].sort((a, b) => a.name.localeCompare(b.name))
+              console.log('StoreAssignment: Updated availableStores:', updated.map(s => s.id))
+              return updated
+            })
+          }
+        } catch (error) {
+          console.error('Error fetching missing stores:', error)
+        }
+      }
+    }
+
+    // Fetch missing stores when selectedStoreIds changes or after initial stores load
+    // Don't wait for availableStores to be populated - fetch immediately if we have selectedStoreIds
+    fetchMissingStores()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStoreIds, availableStores, isSuperAdmin])
+
   useEffect(() => {
     // Update assigned stores when selectedStoreIds prop changes or availableStores loads
     // This ensures stores are properly moved to assigned when availableStores loads
@@ -51,31 +106,39 @@ const StoreAssignment: React.FC<StoreAssignmentProps> = ({
       availableStoreIds: availableStores.map(s => s.id)
     })
     
-    if (availableStores.length > 0 && selectedStoreIds.length > 0) {
-      // Find stores that are in selectedStoreIds
-      const assigned = availableStores.filter(store => 
-        selectedStoreIds.includes(store.id)
-      )
-      console.log('StoreAssignment: Found assigned stores', {
-        assignedCount: assigned.length,
-        assignedIds: assigned.map(s => s.id)
-      })
-      setAssignedStores(assigned)
-      
-      // If we have selectedStoreIds but stores aren't in availableStores yet,
-      // we might need to wait for availableStores to load
-      if (assigned.length === 0 && selectedStoreIds.length > 0) {
-        console.warn('StoreAssignment: selectedStoreIds has stores but they are not in availableStores', {
-          selectedStoreIds,
-          availableStoreIds: availableStores.map(s => s.id)
-        })
-      }
-    } else if (selectedStoreIds.length === 0) {
+    if (selectedStoreIds.length === 0) {
       // If no stores selected, clear assigned stores
       setAssignedStores([])
+      return
     }
-    // If availableStores is empty but selectedStoreIds has items, keep assignedStores as is
-    // (they will be populated when availableStores loads)
+    
+    if (availableStores.length === 0) {
+      // If availableStores is empty but selectedStoreIds has items, wait for stores to load
+      console.log('StoreAssignment: Waiting for availableStores to load...')
+      return
+    }
+    
+    // Find stores that are in selectedStoreIds and availableStores
+    const assigned = availableStores.filter(store => 
+      selectedStoreIds.includes(store.id)
+    )
+    
+    console.log('StoreAssignment: Found assigned stores', {
+      assignedCount: assigned.length,
+      assignedIds: assigned.map(s => s.id),
+      selectedStoreIds,
+      availableStoreIds: availableStores.map(s => s.id)
+    })
+    
+    setAssignedStores(assigned)
+    
+    // Warn if we have selectedStoreIds but stores aren't in availableStores
+    if (assigned.length === 0 && selectedStoreIds.length > 0) {
+      console.warn('StoreAssignment: selectedStoreIds has stores but they are not in availableStores', {
+        selectedStoreIds,
+        availableStoreIds: availableStores.map(s => s.id)
+      })
+    }
   }, [selectedStoreIds, availableStores])
 
   const checkUserRole = async () => {
