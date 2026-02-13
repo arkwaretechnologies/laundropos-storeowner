@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { supabase, supabaseAdmin } from '@/lib/supabase'
 import { useStore } from '@/contexts/StoreContext'
+import { useDialog } from '@/contexts/DialogContext'
 import StoreAssignment from './StoreAssignment'
 
 interface User {
@@ -18,6 +19,7 @@ interface User {
 
 const UserManagement = () => {
   const { selectedStore } = useStore()
+  const { showAlert, showConfirm } = useDialog()
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogVisible, setDialogVisible] = useState(false)
@@ -39,6 +41,8 @@ const UserManagement = () => {
     // Get current user's role to determine if we should show super admins
     const getCurrentUserRole = async () => {
       try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) return
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
           const { data: userData } = await supabase
@@ -136,6 +140,8 @@ const UserManagement = () => {
 
   const getCurrentAuthUserId = async (): Promise<string | null> => {
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return null
       const { data, error } = await supabase.auth.getUser()
       if (error) {
         console.warn('Unable to get current auth user:', error.message)
@@ -203,17 +209,17 @@ const UserManagement = () => {
 
   const handleCreateUser = async () => {
     if (!selectedStore) {
-      alert('Please select a store first')
+      await showAlert('Please select a store first')
       return
     }
 
     if (!email.trim() || !password.trim() || !firstName.trim() || !lastName.trim()) {
-      alert('Please fill in all required fields')
+      await showAlert('Please fill in all required fields')
       return
     }
 
     if (selectedStoreIds.length === 0) {
-      alert('Please assign at least one store to the user')
+      await showAlert('Please assign at least one store to the user')
       return
     }
 
@@ -236,12 +242,12 @@ const UserManagement = () => {
       })
 
       if (authError) {
-        alert(`Failed to create user: ${authError.message}`)
+        await showAlert({ message: `Failed to create user: ${authError.message}`, variant: 'error' })
         return
       }
 
       if (!authData.user) {
-        alert('Failed to create user: No user data returned')
+        await showAlert({ message: 'Failed to create user: No user data returned', variant: 'error' })
         return
       }
 
@@ -267,7 +273,7 @@ const UserManagement = () => {
         })
 
       if (userError) {
-        alert(`User created in auth but failed to save details: ${userError.message}`)
+        await showAlert({ message: `User created in auth but failed to save details: ${userError.message}`, variant: 'error' })
         return
       }
 
@@ -285,16 +291,16 @@ const UserManagement = () => {
         .insert(assignments)
 
       if (assignmentError) {
-        alert(`User created but failed to assign stores: ${assignmentError.message}`)
+        await showAlert({ message: `User created but failed to assign stores: ${assignmentError.message}`, variant: 'warning' })
       } else {
-        alert('User created successfully!')
         setDialogVisible(false)
         resetForm()
         fetchUsers()
+        await showAlert({ message: 'User created successfully!', variant: 'success' })
       }
     } catch (error) {
       console.error('Error:', error)
-      alert('Failed to create user')
+      await showAlert({ message: 'Failed to create user', variant: 'error' })
     } finally {
       setSaving(false)
     }
@@ -310,12 +316,12 @@ const UserManagement = () => {
 
   const handleUpdateUser = async () => {
     if (!firstName.trim() || !lastName.trim()) {
-      alert('Please fill in all required fields')
+      await showAlert('Please fill in all required fields')
       return
     }
 
     if (selectedStoreIds.length === 0) {
-      alert('Please assign at least one store to the user')
+      await showAlert('Please assign at least one store to the user')
       return
     }
 
@@ -326,7 +332,7 @@ const UserManagement = () => {
       // Update password if provided
       if (password.trim()) {
         if (!supabaseAdmin) {
-          alert('Admin client not configured.')
+          await showAlert({ message: 'Admin client not configured.', variant: 'error' })
           return
         }
 
@@ -336,7 +342,7 @@ const UserManagement = () => {
         )
 
         if (passwordError) {
-          alert(`Failed to update password: ${passwordError.message}`)
+          await showAlert({ message: `Failed to update password: ${passwordError.message}`, variant: 'error' })
           return
         }
       }
@@ -354,7 +360,7 @@ const UserManagement = () => {
         .eq('id', editingUser!.id)
 
       if (userError) {
-        alert(`Failed to update user: ${userError.message}`)
+        await showAlert({ message: `Failed to update user: ${userError.message}`, variant: 'error' })
         return
       }
 
@@ -379,26 +385,30 @@ const UserManagement = () => {
         .insert(assignments)
 
       if (assignmentError) {
-        alert(`User updated but failed to update store assignments: ${assignmentError.message}`)
+        await showAlert({ message: `User updated but failed to update store assignments: ${assignmentError.message}`, variant: 'warning' })
         return
       }
 
-      alert('User updated successfully!')
       setDialogVisible(false)
       resetForm()
       fetchUsers()
+      await showAlert({ message: 'User updated successfully!', variant: 'success' })
     } catch (error) {
       console.error('Error:', error)
-      alert('Failed to update user')
+      await showAlert({ message: 'Failed to update user', variant: 'error' })
     } finally {
       setSaving(false)
     }
   }
 
   const handleDelete = async (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user?')) {
-      return
-    }
+    const confirmed = await showConfirm({
+      title: 'Delete User',
+      message: 'Are you sure you want to delete this user?',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+    })
+    if (!confirmed) return
 
     try {
       const { error } = await supabase
@@ -407,15 +417,15 @@ const UserManagement = () => {
         .eq('id', userId)
 
       if (error) {
-        alert('Failed to delete user')
+        await showAlert({ message: 'Failed to delete user', variant: 'error' })
         return
       }
 
-      alert('User deleted successfully!')
+      await showAlert({ message: 'User deleted successfully!', variant: 'success' })
       fetchUsers()
     } catch (error) {
       console.error('Error:', error)
-      alert('Failed to delete user')
+      await showAlert({ message: 'Failed to delete user', variant: 'error' })
     }
   }
 

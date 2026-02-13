@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useStore } from '@/contexts/StoreContext'
+import { useDialog } from '@/contexts/DialogContext'
 import { 
   Button, 
   TextField, 
@@ -60,6 +61,7 @@ const units = [
 
 export default function InventoryManagement() {
   const { selectedStore } = useStore()
+  const { showAlert, showConfirm } = useDialog()
   const [items, setItems] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showDialog, setShowDialog] = useState(false)
@@ -148,12 +150,12 @@ export default function InventoryManagement() {
 
   const handleSave = async () => {
     if (!selectedStore) {
-      alert('Please select a store first')
+      await showAlert('Please select a store first')
       return
     }
 
     if (!name.trim()) {
-      alert('Please enter a product name')
+      await showAlert('Please enter a product name')
       return
     }
 
@@ -183,28 +185,36 @@ export default function InventoryManagement() {
           .eq('id', editingItem.id)
 
         if (error) throw error
-        alert('Inventory item updated successfully')
+        setShowDialog(false)
+        resetForm()
+        loadItems()
+        await showAlert({ message: 'Inventory item updated successfully', variant: 'success' })
       } else {
         const { error } = await supabase
           .from('inventory_items')
           .insert(itemData)
 
         if (error) throw error
-        alert('Inventory item created successfully')
+        setShowDialog(false)
+        resetForm()
+        loadItems()
+        await showAlert({ message: 'Inventory item created successfully', variant: 'success' })
       }
-
-      setShowDialog(false)
-      resetForm()
-      loadItems()
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       console.error('Error saving inventory item:', error)
-      alert(`Failed to save inventory item: ${errorMessage}`)
+      await showAlert({ message: `Failed to save inventory item: ${errorMessage}`, variant: 'error' })
     }
   }
 
   const handleDelete = async (item: InventoryItem) => {
-    if (!confirm(`Are you sure you want to delete "${item.name}"?`)) return
+    const confirmed = await showConfirm({
+      title: 'Delete Product',
+      message: `Are you sure you want to delete "${item.name}"?`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+    })
+    if (!confirmed) return
 
     try {
       const { error } = await supabase
@@ -213,12 +223,12 @@ export default function InventoryManagement() {
         .eq('id', item.id)
 
       if (error) throw error
-      alert('Inventory item deleted successfully')
+      await showAlert({ message: 'Inventory item deleted successfully', variant: 'success' })
       loadItems()
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       console.error('Error deleting inventory item:', error)
-      alert(`Failed to delete inventory item: ${errorMessage}`)
+      await showAlert({ message: `Failed to delete inventory item: ${errorMessage}`, variant: 'error' })
     }
   }
 
@@ -234,7 +244,7 @@ export default function InventoryManagement() {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       console.error('Error updating inventory item status:', error)
-      alert(`Failed to update status: ${errorMessage}`)
+      await showAlert({ message: `Failed to update status: ${errorMessage}`, variant: 'error' })
     }
   }
 

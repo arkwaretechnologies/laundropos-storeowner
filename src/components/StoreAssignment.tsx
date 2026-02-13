@@ -143,6 +143,8 @@ const StoreAssignment: React.FC<StoreAssignmentProps> = ({
 
   const checkUserRole = async () => {
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 

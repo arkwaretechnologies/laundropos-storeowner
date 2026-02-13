@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useStore } from '@/contexts/StoreContext'
+import { useDialog } from '@/contexts/DialogContext'
 import { 
   Button, 
   TextField, 
@@ -15,10 +16,9 @@ import {
   Switch,
   TextArea,
   IconButton,
-  Box,
-  Tabs
+  Box
 } from '@radix-ui/themes'
-import { PlusIcon, Pencil2Icon, TrashIcon, GlobeIcon } from '@radix-ui/react-icons'
+import { PlusIcon, Pencil2Icon, TrashIcon } from '@radix-ui/react-icons'
 
 interface Service {
   id: string
@@ -35,11 +35,11 @@ interface Service {
 
 export default function ServicesManagement() {
   const { selectedStore } = useStore()
+  const { showAlert, showConfirm } = useDialog()
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
   const [showDialog, setShowDialog] = useState(false)
   const [editingService, setEditingService] = useState<Service | null>(null)
-  const [activeTab, setActiveTab] = useState('global')
   const [error, setError] = useState<string | null>(null)
 
   // Form state
@@ -201,24 +201,24 @@ export default function ServicesManagement() {
 
   const handleSave = async () => {
     if (!selectedStore) {
-      alert('Please select a store first')
+      await showAlert('Please select a store first')
       return
     }
 
     if (!serviceName || !servicePrice) {
-      alert('Please fill in service name and price')
+      await showAlert('Please fill in service name and price')
       return
     }
 
     const price = parseFloat(servicePrice)
     if (isNaN(price) || price < 0) {
-      alert('Please enter a valid price')
+      await showAlert('Please enter a valid price')
       return
     }
 
     // Store owners can only edit/delete their own custom services, not global ones
     if (editingService && editingService.is_global) {
-      alert('You cannot edit global services. Only super admins can modify global services.')
+      await showAlert('You cannot edit global services. Only super admins can modify global services.')
       return
     }
 
@@ -242,33 +242,41 @@ export default function ServicesManagement() {
           .eq('id', editingService.id)
 
         if (error) throw error
-        alert('Service updated successfully')
+        setShowDialog(false)
+        resetForm()
+        loadServices()
+        await showAlert({ message: 'Service updated successfully', variant: 'success' })
       } else {
         const { error } = await supabase
           .from('services')
           .insert(serviceData)
 
         if (error) throw error
-        alert('Service created successfully')
+        setShowDialog(false)
+        resetForm()
+        loadServices()
+        await showAlert({ message: 'Service created successfully', variant: 'success' })
       }
-
-      setShowDialog(false)
-      resetForm()
-      loadServices()
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       console.error('Error saving service:', error)
-      alert(`Failed to save service: ${errorMessage}`)
+      await showAlert({ message: `Failed to save service: ${errorMessage}`, variant: 'error' })
     }
   }
 
   const handleDelete = async (service: Service) => {
     if (service.is_global) {
-      alert('You cannot delete global services. Only super admins can delete global services.')
+      await showAlert('You cannot delete global services. Only super admins can delete global services.')
       return
     }
 
-    if (!confirm(`Are you sure you want to delete "${service.name}"?`)) return
+    const confirmed = await showConfirm({
+      title: 'Delete Service',
+      message: `Are you sure you want to delete "${service.name}"?`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+    })
+    if (!confirmed) return
 
     try {
       const { error } = await supabase
@@ -277,18 +285,18 @@ export default function ServicesManagement() {
         .eq('id', service.id)
 
       if (error) throw error
-      alert('Service deleted successfully')
+      await showAlert({ message: 'Service deleted successfully', variant: 'success' })
       loadServices()
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       console.error('Error deleting service:', error)
-      alert(`Failed to delete service: ${errorMessage}`)
+      await showAlert({ message: `Failed to delete service: ${errorMessage}`, variant: 'error' })
     }
   }
 
   const toggleServiceStatus = async (service: Service) => {
     if (service.is_global) {
-      alert('You cannot modify global services. Only super admins can modify global services.')
+      await showAlert('You cannot modify global services. Only super admins can modify global services.')
       return
     }
 
@@ -303,7 +311,7 @@ export default function ServicesManagement() {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       console.error('Error updating service status:', error)
-      alert(`Failed to update service status: ${errorMessage}`)
+      await showAlert({ message: `Failed to update service status: ${errorMessage}`, variant: 'error' })
     }
   }
 
@@ -337,7 +345,6 @@ export default function ServicesManagement() {
     )
   }
 
-  const globalServices = services.filter(s => s.is_global)
   const customServices = services.filter(s => !s.is_global)
 
   return (
@@ -352,126 +359,69 @@ export default function ServicesManagement() {
             </Text>
           </Box>
           <Button onClick={() => openDialog()} className="w-full sm:w-auto flex-shrink-0">
-            <PlusIcon /> Add Custom Service
+            <PlusIcon /> Add Service
           </Button>
         </Flex>
 
-        {/* Tabs */}
-        <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
-          <Tabs.List>
-            <Tabs.Trigger value="global">
-              <Flex align="center" gap="2">
-                <GlobeIcon />
-                <Text>Global Services</Text>
-                <Badge size="1" variant="soft">{globalServices.length}</Badge>
-              </Flex>
-            </Tabs.Trigger>
-            <Tabs.Trigger value="custom">
-              <Flex align="center" gap="2">
-                <Text>Custom Services</Text>
-                <Badge size="1" variant="soft">{customServices.length}</Badge>
-              </Flex>
-            </Tabs.Trigger>
-          </Tabs.List>
-
-          <Box pt="4">
-            <Tabs.Content value="global">
-              <Flex direction="column" gap="3">
-                {globalServices.length === 0 ? (
-                  <Card>
-                    <Text color="gray">No global services available</Text>
-                  </Card>
-                ) : (
-                  globalServices.map(service => (
-                    <Card key={service.id}>
-                      <Flex justify="between" align="center">
-                        <Flex gap="3" align="center">
-                          <Badge color="blue" variant="soft">
-                            <GlobeIcon /> GLOBAL
-                          </Badge>
-                          <Box>
-                            <Flex gap="2" align="center">
-                              <Text weight="bold" size="4">{service.name}</Text>
-                              {!service.is_active && <Badge color="gray">Inactive</Badge>}
-                            </Flex>
-                            {service.description && (
-                              <Text size="2" color="gray">{service.description}</Text>
-                            )}
-                          </Box>
-                        </Flex>
-                        <Flex gap="3" align="center">
-                          <Text size="5" weight="bold" color="green">₱{service.price.toFixed(2)}</Text>
-                          <Text size="2" color="gray">Read-only</Text>
-                        </Flex>
+        {/* Services List */}
+        <Flex direction="column" gap="3">
+          {customServices.length === 0 ? (
+            <Card>
+              <Text color="gray">No services yet. Create one to get started.</Text>
+            </Card>
+          ) : (
+            customServices.map(service => (
+              <Card key={service.id}>
+                <Flex justify="between" align="center">
+                  <Flex gap="3" align="center">
+                    <Badge color="green" variant="soft">
+                      {selectedStore.name}
+                    </Badge>
+                    <Box>
+                      <Flex gap="2" align="center">
+                        <Text weight="bold" size="4">{service.name}</Text>
+                        {!service.is_active && <Badge color="gray">Inactive</Badge>}
                       </Flex>
-                    </Card>
-                  ))
-                )}
-              </Flex>
-            </Tabs.Content>
-
-            <Tabs.Content value="custom">
-              <Flex direction="column" gap="3">
-                {customServices.length === 0 ? (
-                  <Card>
-                    <Text color="gray">No custom services yet. Create one to get started.</Text>
-                  </Card>
-                ) : (
-                  customServices.map(service => (
-                    <Card key={service.id}>
-                      <Flex justify="between" align="center">
-                        <Flex gap="3" align="center">
-                          <Badge color="green" variant="soft">
-                            {selectedStore.name}
-                          </Badge>
-                          <Box>
-                            <Flex gap="2" align="center">
-                              <Text weight="bold" size="4">{service.name}</Text>
-                              {!service.is_active && <Badge color="gray">Inactive</Badge>}
-                            </Flex>
-                            {service.description && (
-                              <Text size="2" color="gray">{service.description}</Text>
-                            )}
-                          </Box>
-                        </Flex>
-                        <Flex gap="3" align="center">
-                          <Text size="5" weight="bold" color="green">₱{service.price.toFixed(2)}</Text>
-                          <Flex gap="2">
-                            <Switch
-                              checked={service.is_active}
-                              onCheckedChange={() => toggleServiceStatus(service)}
-                            />
-                            <IconButton
-                              variant="soft"
-                              onClick={() => openDialog(service)}
-                            >
-                              <Pencil2Icon />
-                            </IconButton>
-                            <IconButton
-                              variant="soft"
-                              color="red"
-                              onClick={() => handleDelete(service)}
-                            >
-                              <TrashIcon />
-                            </IconButton>
-                          </Flex>
-                        </Flex>
-                      </Flex>
-                    </Card>
-                  ))
-                )}
-              </Flex>
-            </Tabs.Content>
-          </Box>
-        </Tabs.Root>
+                      {service.description && (
+                        <Text size="2" color="gray">{service.description}</Text>
+                      )}
+                    </Box>
+                  </Flex>
+                  <Flex gap="3" align="center">
+                    <Text size="5" weight="bold" color="green">₱{service.price.toFixed(2)}</Text>
+                    <Flex gap="2">
+                      <Switch
+                        checked={service.is_active}
+                        onCheckedChange={() => toggleServiceStatus(service)}
+                      />
+                      <IconButton
+                        variant="soft"
+                        onClick={() => openDialog(service)}
+                      >
+                        <Pencil2Icon />
+                      </IconButton>
+                      <IconButton
+                        variant="soft"
+                        color="red"
+                        onClick={() => handleDelete(service)}
+                      >
+                        <TrashIcon />
+                      </IconButton>
+                    </Flex>
+                  </Flex>
+                </Flex>
+              </Card>
+            ))
+          )}
+        </Flex>
       </Flex>
 
       {/* Add/Edit Dialog */}
       <Dialog.Root open={showDialog} onOpenChange={setShowDialog}>
         <Dialog.Content style={{ maxWidth: 600 }}>
-          <Dialog.Title>{editingService ? 'Edit Service' : 'Add New Custom Service'}</Dialog.Title>
+          <Dialog.Title>{editingService ? 'Edit Service' : 'Add New Service'}</Dialog.Title>
           <Dialog.Description size="2" mb="4">
-            {editingService ? 'Update service details' : 'Create a custom service for your store'}
+            {editingService ? 'Update service details' : 'Create a service for your store'}
           </Dialog.Description>
 
           <Flex direction="column" gap="3">

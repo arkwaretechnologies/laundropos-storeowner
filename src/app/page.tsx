@@ -24,6 +24,7 @@ const HamburgerMenuIcon = ({ className }: { className?: string }) => (
   </svg>
 )
 import { StoreProvider, useStore } from '@/contexts/StoreContext'
+import { DialogProvider } from '@/contexts/DialogContext'
 import Sidebar from '@/components/Sidebar'
 import Dashboard from '@/components/Dashboard'
 import UserManagement from '@/components/UserManagement'
@@ -69,6 +70,13 @@ function DashboardContent() {
 
   const checkAuth = async () => {
     try {
+      // Check for existing session first to avoid AuthSessionMissingError
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        router.push('/login')
+        return
+      }
+
       const { data: { user }, error: authError } = await supabase.auth.getUser()
       
       // Handle refresh token errors specifically
@@ -258,9 +266,11 @@ function DashboardContent() {
 
 export default function Home() {
   return (
-    <StoreProvider>
-      <DashboardContent />
-    </StoreProvider>
+    <DialogProvider>
+      <StoreProvider>
+        <DashboardContent />
+      </StoreProvider>
+    </DialogProvider>
   )
 }
 

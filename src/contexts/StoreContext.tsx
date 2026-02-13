@@ -51,6 +51,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const loadStores = async () => {
     try {
       setLoading(true)
+
+      // Check for existing session first to avoid AuthSessionMissingError
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setStores([])
+        setSelectedStore(null)
+        return
+      }
+
       const { data: { user }, error: authError } = await supabase.auth.getUser()
       
       // Handle refresh token errors

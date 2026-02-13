@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useDialog } from '@/contexts/DialogContext'
 // Download icon component
 const DownloadIcon = () => (
   <svg
@@ -25,6 +26,7 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export default function PWAInstallButton() {
+  const { showAlert } = useDialog()
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [isInstalled, setIsInstalled] = useState(false)
   const [showButton, setShowButton] = useState(false)
@@ -78,7 +80,11 @@ export default function PWAInstallButton() {
   const handleInstallClick = async () => {
     if (!deferredPrompt) {
       // iOS or manual install
-      alert('To install this app:\n\nOn iOS: Tap the Share button and select "Add to Home Screen"\n\nOn Android: Use the browser menu and select "Install app" or "Add to Home Screen"')
+      await showAlert({
+        title: 'Install App',
+        message: 'To install this app:\n\nOn iOS: Tap the Share button and select "Add to Home Screen"\n\nOn Android: Use the browser menu and select "Install app" or "Add to Home Screen"',
+        variant: 'info',
+      })
       return
     }
 

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
 import { PersonIcon, ExitIcon } from '@radix-ui/react-icons'
+import { useDialog } from '@/contexts/DialogContext'
 
 interface UserProfileMenuProps {
   user: User
@@ -22,6 +23,7 @@ export default function UserProfileMenu({ user }: UserProfileMenuProps) {
   const [loading, setLoading] = useState(true)
   const menuRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
+  const { showAlert } = useDialog()
 
   useEffect(() => {
     if (user) {
@@ -101,9 +103,9 @@ export default function UserProfileMenu({ user }: UserProfileMenuProps) {
     router.push('/login')
   }
 
-  const handleViewProfile = () => {
+  const handleViewProfile = async () => {
     // TODO: Implement profile view
-    alert('Profile view coming soon!')
+    await showAlert({ title: 'Coming Soon', message: 'Profile view coming soon!', variant: 'info' })
     setIsOpen(false)
   }
 

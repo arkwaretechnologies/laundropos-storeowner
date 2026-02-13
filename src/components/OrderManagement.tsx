@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useStore } from '@/contexts/StoreContext'
+import { useDialog } from '@/contexts/DialogContext'
 import { Button, TextField, Card, Heading, Text } from '@radix-ui/themes'
 import OrderClaimStub from './OrderClaimStub'
 
@@ -26,6 +27,7 @@ interface Order {
 
 export default function OrderManagement() {
   const { selectedStore } = useStore()
+  const { showAlert } = useDialog()
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
@@ -67,7 +69,7 @@ export default function OrderManagement() {
 
       if (error) {
         console.error('Database error loading orders:', error)
-        alert(`Error loading orders: ${error.message}`)
+        showAlert({ message: `Error loading orders: ${error.message}`, variant: 'error' })
         setOrders([])
         return
       }
