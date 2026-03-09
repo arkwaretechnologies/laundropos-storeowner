@@ -33,6 +33,7 @@ import OrderManagement from '@/components/OrderManagement'
 import InventoryManagement from '@/components/InventoryManagement'
 import Reports from '@/components/Reports'
 import StoreProfile from '@/components/StoreProfile'
+import CustomerManagement from '@/components/CustomerManagement'
 import UserProfileMenu from '@/components/UserProfileMenu'
 
 function DashboardContent() {
@@ -209,6 +210,8 @@ function DashboardContent() {
         return <ServicesManagement />
       case 'orders':
         return <OrderManagement />
+      case 'customers':
+        return <CustomerManagement />
       case 'inventory':
         return <InventoryManagement />
       case 'reports':

@@ -28,6 +28,7 @@ const baseMenuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: BarChartIcon },
   { id: 'store-profile', label: 'Store Profile', icon: GearIcon },
   { id: 'users', label: 'Users', icon: PersonIcon },
+  { id: 'customers', label: 'Customers', icon: PersonIcon },
   { id: 'services', label: 'Services & Pricing', icon: CubeIcon },
   { id: 'inventory', label: 'Inventory', icon: BoxIcon },
   { id: 'orders', label: 'Orders & QR Codes', icon: FileTextIcon },
