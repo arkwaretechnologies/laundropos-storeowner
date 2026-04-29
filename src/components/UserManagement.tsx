@@ -218,11 +218,6 @@ const UserManagement = () => {
       return
     }
 
-    if (selectedStoreIds.length === 0) {
-      await showAlert('Please assign at least one store to the user')
-      return
-    }
-
     setSaving(true)
     try {
       const actingUserId = await getCurrentAuthUserId()
@@ -277,14 +272,15 @@ const UserManagement = () => {
         return
       }
 
-      // Step 4: Create store assignments
-      const assignments = selectedStoreIds.map((storeId, index) => ({
+      // Step 4: Create store assignment
+      // New users should be auto-assigned to the currently selected store only.
+      const assignments = [{
         user_id: authData.user!.id,
-        store_id: storeId,
+        store_id: selectedStore.id,
         role: 'employee',
-        is_primary: index === 0,
+        is_primary: true,
         assigned_by: actingUserId || authData.user!.id
-      }))
+      }]
 
       const { error: assignmentError } = await supabaseAdmin
         .from('user_store_assignments')
@@ -310,12 +306,16 @@ const UserManagement = () => {
     if (editingUser) {
       await handleUpdateUser()
     } else {
+      if (selectedStore) {
+        // Ensure create flow always follows the current store context.
+        setSelectedStoreIds([selectedStore.id])
+      }
       await handleCreateUser()
     }
   }
 
   const handleUpdateUser = async () => {
-    if (!firstName.trim() || !lastName.trim()) {
+    if (!email.trim() || !firstName.trim() || !lastName.trim()) {
       await showAlert('Please fill in all required fields')
       return
     }
@@ -328,21 +328,24 @@ const UserManagement = () => {
     setSaving(true)
     try {
       const actingUserId = await getCurrentAuthUserId()
+      const normalizedEmail = email.trim().toLowerCase()
+      const emailChanged = normalizedEmail !== (editingUser?.email ?? '').trim().toLowerCase()
       
-      // Update password if provided
-      if (password.trim()) {
+      // Update auth user fields (email/password) if provided/changed
+      if (password.trim() || emailChanged) {
         if (!supabaseAdmin) {
           await showAlert({ message: 'Admin client not configured.', variant: 'error' })
           return
         }
 
-        const { error: passwordError } = await supabaseAdmin.auth.admin.updateUserById(
-          editingUser!.id,
-          { password: password.trim() }
-        )
+        const updatePayload: { password?: string; email?: string } = {}
+        if (password.trim()) updatePayload.password = password.trim()
+        if (emailChanged) updatePayload.email = normalizedEmail
 
-        if (passwordError) {
-          await showAlert({ message: `Failed to update password: ${passwordError.message}`, variant: 'error' })
+        const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(editingUser!.id, updatePayload)
+
+        if (authUpdateError) {
+          await showAlert({ message: `Failed to update user auth details: ${authUpdateError.message}`, variant: 'error' })
           return
         }
       }
@@ -351,6 +354,7 @@ const UserManagement = () => {
       const { error: userError } = await supabase
         .from('users')
         .update({
+          email: normalizedEmail,
           first_name: firstName.trim(),
           last_name: lastName.trim(),
           phone: phone.trim() || null,
@@ -559,7 +563,6 @@ const UserManagement = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  disabled={!!editingUser}
                 />
               </div>
 
@@ -651,13 +654,21 @@ const UserManagement = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Store/Tenant *
               </label>
-              <StoreAssignment
-                selectedStoreIds={selectedStoreIds}
-                onStoreSelectionChange={setSelectedStoreIds}
-              />
-              {selectedStoreIds.length === 0 && (
-                <div className="text-red-600 text-sm mt-1">
-                  Please assign at least one store to the user
+              {editingUser ? (
+                <>
+                  <StoreAssignment
+                    selectedStoreIds={selectedStoreIds}
+                    onStoreSelectionChange={setSelectedStoreIds}
+                  />
+                  {selectedStoreIds.length === 0 && (
+                    <div className="text-red-600 text-sm mt-1">
+                      Please assign at least one store to the user
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+                  This user will be assigned to <strong>{selectedStore.name}</strong>.
                 </div>
               )}
             </div>
